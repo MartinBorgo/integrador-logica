@@ -161,24 +161,16 @@ linearResolutionwithAllRefutations(Proof, DeductionSet, DeductionSteps) :-
     findAllRefutations(NewDeductionSet, DeductionSteps).
 
 % [[[p, q], [not q], [p]], [[p], [not p], []]]
-% ----------------- Prueba ----------------- %
-test1 :- 
-    toList(a or b or c or not h, Ls),
-    format('Testeo del predicado para converitr disyunciones en listas: '), 
-    write(Ls).
+% ----------------- Correr el commando ----------------- %
 
-test2 :-
-    listOfList([a or b or not c, b or not a or not h], Ls),
-    format('Testeo del predicado para convertir listas de disyunciones en listas de listas: '), 
-    write(Ls).
-
-test3 :-
-    resolution([a, not b], [d, b, not a], C),
-    format('Testeo del predicado resolvente: '), 
-    write(C).
-
-test_all_deductions :-
+todasLasRefutaciones :-
     linearResolutionwithAllRefutations(c,[[p, not q],[q],[not p],[not c]], Ls),
     generalParser(Ls, Resturn),
-    format('Testeo para ver si el metodo de encontrar todas las refutaciones anda: ~n'),
+    format('Todas las refutaciones posibles por Resolución Lineal: ~n'),
     printAllDeductions(Resturn).
+
+refutar :-
+    linearResolution(c,[[p, not q],[q],[not p],[not c]], Ls),
+    deductionParser(Ls, Data),
+    format('Refutación por Resolución Lineal: ~n'),
+    printDeduction(Data).
