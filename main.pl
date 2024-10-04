@@ -23,8 +23,7 @@ isRefutable([]).
 first([Head | _], Head).
 
 % Predicado para eliminar los elementos repretidos
-removeDuplicates([], []).
-
+removeDuplicates([], []) :- !.
 removeDuplicates([H | T], [H | R]) :-
     not(member(H, T)),
     removeDuplicates(T, R).
@@ -33,9 +32,25 @@ removeDuplicates([H | T], R) :-
     member(H, T),
     removeDuplicates(T, R).
 
-% Predicado para implrimir listas de forma más organizada
-printList([]).
+% Predicado para dar formato a cada paso de deducción
+formatStep([A, B, R]) :-
+    format('Resolución ==> ~|~t~w~t~15+ |>> ~|~t~w~t~15+ ---> ~|~t~w~t~5+~n', [A, B, R]).
 
+% Predicado para imprimir un procedimiento de deducción.
+printDeduction([]) :- !.
+printDeduction([FirstStep | DeductionStep]) :-
+    formatStep(FirstStep),
+    printDeduction(DeductionStep).
+
+% Este predicado hace lo mismo que el anterior pero para todas las refutaciones posibles.
+printAllDeductions([]) :- !.
+printAllDeductions([FirstDeduction | AllDeductions]) :-
+    printDeduction(FirstDeduction),
+    format('~n~|~t+ ---------------- x ---------------- +~t~60+~n~n'),
+    printAllDeductions(AllDeductions).
+
+% Predicado para implrimir listas de forma más organizada
+printList([]) :- !.
 printList([H | T]) :-
     writeln(H),
     printList(T).
@@ -62,6 +77,30 @@ listOfList([], []) :- !.
 listOfList([Disjunction | List], [LiteralList | Result]) :- 
     toList(Disjunction, LiteralList),
     listOfList(List, Result).
+
+% Predicado para parsear una lista de Literales en una clausula
+toClause([], box) :- !.
+toClause([Head | []], Head) :- !.
+toClause([Head | LiteralList], Head or Clause) :-
+    toClause(LiteralList, Clause).
+
+% Predicado para convertir las lista de lista de literales en un lista de clausulas
+listOfClauses([], []) :- !.
+listOfClauses([LiteralList | ListOfLists], [Clause | ClauseList]) :-
+    toClause(LiteralList, Clause),
+    listOfClauses(ListOfLists, ClauseList).
+
+% Predicado para parsear los datos de una lista que contiene todos los pasos para la refutación
+deductionParser([], []) :- !.
+deductionParser([FirsStep | DeductionSteps], [ClauseList | ParsedData]) :-
+    listOfClauses(FirsStep, ClauseList),
+    deductionParser(DeductionSteps, ParsedData).
+
+% Predicado que hace lo mismo que el anterior pero para la lista de todas las posibles refutaciones
+generalParser([], []) :- !.
+generalParser([FirstDeduction | AllDeductions], [ParsedDeduction | ParsedData]) :-
+    deductionParser(FirstDeduction, ParsedDeduction),
+    generalParser(AllDeductions, ParsedData).
 
 % ----------------- Resolvente ----------------- %
 
@@ -121,6 +160,7 @@ linearResolutionwithAllRefutations(Proof, DeductionSet, DeductionSteps) :-
     append(DeductionSet, [[not Proof]], NewDeductionSet),
     findAllRefutations(NewDeductionSet, DeductionSteps).
 
+% [[[p, q], [not q], [p]], [[p], [not p], []]]
 % ----------------- Prueba ----------------- %
 test1 :- 
     toList(a or b or c or not h, Ls),
@@ -139,5 +179,6 @@ test3 :-
 
 test_all_deductions :-
     linearResolutionwithAllRefutations(c,[[p, not q],[q],[not p],[not c]], Ls),
+    generalParser(Ls, Resturn),
     format('Testeo para ver si el metodo de encontrar todas las refutaciones anda: ~n'),
-    printList(Ls).
+    printAllDeductions(Resturn).
