@@ -9,8 +9,7 @@ clear :-
 % ----------------- Utils ----------------- %
 
 % Predicado que me ayuda a saber si un literal esta negado
-negativeLiteral(not Literal) :- 
-    not(compound(Literal)).
+negativeLiteral(not Literal) :- atom(Literal).
 
 % Predicado para saber si dos literales son complementarios
 complement(X, not X).
@@ -18,9 +17,6 @@ complement(not X, X).
 
 % Preficado para saber si es refutable un conjunto de clausulas
 isRefutable([]).
-
-% Devuelve el primer elemento de una lista
-first([Head | _], Head).
 
 % Predicado para eliminar los elementos repretidos
 removeDuplicates([], []) :- !.
@@ -32,9 +28,11 @@ removeDuplicates([H | T], R) :-
     member(H, T),
     removeDuplicates(T, R).
 
+% ----------------- Prints ----------------- %
+
 % Predicado para dar formato a cada paso de deducción
 formatStep([A, B, R]) :-
-    format('Resolución ==> ~|~t~w~t~15+ |>> ~|~t~w~t~15+ ---> ~|~t~w~t~5+~n', [A, B, R]).
+    format('Resolvente ==> ~|~t~w~t~15+ |>> ~|~t~w~t~15+ ---> ~|~t~w~t~5+~n', [A, B, R]).
 
 % Predicado para imprimir un procedimiento de deducción.
 printDeduction([]) :- !.
@@ -49,34 +47,25 @@ printAllDeductions([FirstDeduction | AllDeductions]) :-
     format('~n~|~t+ ---------------- x ---------------- +~t~60+~n~n'),
     printAllDeductions(AllDeductions).
 
-% Predicado para implrimir listas de forma más organizada
-printList([]) :- !.
-printList([H | T]) :-
-    writeln(H),
-    printList(T).
-
-% ----------------- Parser ----------------- %
+% ----------------- ClauseParser ----------------- %
 
 % Predicado para dividir una disyunción en una lista
-toList(Left or Right, [Left | Rest]) :-
-    toList(Right, Rest).
+toList(Left or Right, [Left | Rest]) :- toList(Right, Rest).
 
 toList(Left or Right, [Left | Rest]) :-
     negativeLiteral(Left),
     toList(Right, Rest).
 
-toList(Literal, [Literal]) :-
-    not(compound(Literal)), !.
-
-toList(not Literal, [not Literal]) :-
-    not(compound(Literal)), !.
+toList(Literal, [Literal]) :- atom(Literal), !.
+toList(not Literal, [not Literal]) :- atom(Literal), !.
 
 % Predicado para pasar una lista de disyunciones a una lista de listas de literales
-listOfList([], []) :- !.
-
-listOfList([Disjunction | List], [LiteralList | Result]) :- 
+toListOfLists([], []) :- !.
+toListOfLists([Disjunction | List], [LiteralList | Result]) :- 
     toList(Disjunction, LiteralList),
-    listOfList(List, Result).
+    toListOfLists(List, Result).
+
+% ----------------- ListParser ----------------- %
 
 % Predicado para parsear una lista de Literales en una clausula
 toClause([], box) :- !.
@@ -105,7 +94,7 @@ generalParser([FirstDeduction | AllDeductions], [ParsedDeduction | ParsedData]) 
 % ----------------- Resolvente ----------------- %
 
 % Predicado para realizar la resolvente
-resolution(FirsClause, SecondClause, Resolvent) :-
+resolving(FirsClause, SecondClause, Resolvent) :-
     select(Literal, FirsClause, RestA),
     complement(Literal, OppositeLiteral),
     select(OppositeLiteral, SecondClause, RestB),
@@ -114,63 +103,69 @@ resolution(FirsClause, SecondClause, Resolvent) :-
 % ----------------- Resolución Lineal ----------------- %
 
 % Predicado recursivo para aplicar la resolución lineal y obtener los pasos
-resolve(Step, DeductionSet, [[Step, Clause, Resolvent]]) :-
+linearResolution(Step, DeductionSet, [[Step, Clause, Resolvent]]) :-
     member(Clause, DeductionSet),
-    resolution(Step, Clause, Resolvent),
+    resolving(Step, Clause, Resolvent),
     isRefutable(Resolvent).
 
-resolve(Step, DeductionSet, [[Step, Clause, Resolvent] | NextSteps]) :-
+linearResolution(Step, DeductionSet, [[Step, Clause, Resolvent] | NextSteps]) :-
     member(Clause, DeductionSet),
-    resolution(Step, Clause, Resolvent),
+    resolving(Step, Clause, Resolvent),
     not(isRefutable(Resolvent)),
     not(member(Resolvent, DeductionSet)),
-    resolve(Resolvent, [Resolvent | DeductionSet], NextSteps).
+    linearResolution(Resolvent, [Resolvent | DeductionSet], NextSteps).
 
-resolve(Step, DeductionSet, [[Step, Clause, Resolvent] | NextSteps]) :-
+linearResolution(Step, DeductionSet, [[Step, Clause, Resolvent] | NextSteps]) :-
     member(Clause, DeductionSet),
-    resolution(Step, Clause, Resolvent),
+    resolving(Step, Clause, Resolvent),
     not(isRefutable(Resolvent)),
-    resolve(Resolvent, DeductionSet, NextSteps).
+    linearResolution(Resolvent, DeductionSet, NextSteps).
 
 % Predicado para poder econtrar todas las soluciones posibles (o eso intenta)
 findAllRefutations(DeductionSet, AllRefutations) :-
     findall(DeductionSteps, (
         member(Top, DeductionSet),
-        resolve(Top, DeductionSet, DeductionSteps)
-    ), AllRefutationsRaw),
+        linearResolution(Top, DeductionSet, DeductionSteps)
+    ),AllRefutationsRaw),
     removeDuplicates(AllRefutationsRaw, AllRefutations).
 
-% Predicado principal donde se empieza a hacer la resolución lineal
-linearResolution(not Proof, DeductionSet, DeductionSteps) :-
-    append(DeductionSet, [[Proof]], NewDeductionSet),
-    first(NewDeductionSet, Top),
-    resolve(Top, NewDeductionSet, DeductionSteps).
+% ----------------- Refutacion/es ----------------- %
 
-linearResolution(Proof, DeductionSet, DeductionSteps) :-
-    append(DeductionSet, [[not Proof]], NewDeductionSet),
-    first(NewDeductionSet, Top),
-    resolve(Top, NewDeductionSet, DeductionSteps).
+% Predicado principal donde se empieza a hacer la resolución lineal
+refutation(not Proof, DeductionSet, DeductionSteps) :-
+    append(DeductionSet, [Proof], NewDeductionSet),
+    toListOfLists(NewDeductionSet, ParsedSet),
+    member(Top, ParsedSet),
+    linearResolution(Top, ParsedSet, DeductionSteps).
+
+refutation(Proof, DeductionSet, DeductionSteps) :-
+    append(DeductionSet, [not Proof], NewDeductionSet),
+    toListOfLists(NewDeductionSet, ParsedSet),
+    member(Top, ParsedSet),
+    linearResolution(Top, ParsedSet, DeductionSteps).
 
 % Predicado para encontrar todas las posibles deducciones en el conjunto de deducción
-linearResolutionwithAllRefutations(not Proof, DeductionSet, DeductionSteps) :-
-    append(DeductionSet, [[Proof]], NewDeductionSet),
-    findAllRefutations(NewDeductionSet, DeductionSteps).
+allRefutations(not Proof, DeductionSet, DeductionSteps) :-
+    append(DeductionSet, [Proof], NewDeductionSet),
+    toListOfLists(NewDeductionSet, ParsedSet),
+    findAllRefutations(ParsedSet, DeductionSteps).
 
-linearResolutionwithAllRefutations(Proof, DeductionSet, DeductionSteps) :-
-    append(DeductionSet, [[not Proof]], NewDeductionSet),
-    findAllRefutations(NewDeductionSet, DeductionSteps).
+allRefutations(Proof, DeductionSet, DeductionSteps) :-
+    append(DeductionSet, [not Proof], NewDeductionSet),
+    toListOfLists(NewDeductionSet, ParsedSet),
+    findAllRefutations(ParsedSet, DeductionSteps).
 
 % [[[p, q], [not q], [p]], [[p], [not p], []]]
 % ----------------- Correr el commando ----------------- %
 
 todasLasRefutaciones :-
-    linearResolutionwithAllRefutations(c,[[p, not q],[q],[not p],[not c]], Ls),
+    allRefutations(c,[p or not q, q, not p, not c], Ls),
     generalParser(Ls, Resturn),
     format('Todas las refutaciones posibles por Resolución Lineal: ~n'),
     printAllDeductions(Resturn).
 
 refutar :-
-    linearResolution(c,[[p, not q],[q],[not p],[not c]], Ls),
+    refutation(c,[p or not q, q, not p, not c], Ls),
     deductionParser(Ls, Data),
     format('Refutación por Resolución Lineal: ~n'),
     printDeduction(Data).
