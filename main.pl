@@ -12,8 +12,8 @@ clear :-
 negativeLiteral(not Literal) :- atom(Literal).
 
 % Predicado para saber si dos literales son complementarios
-complement(X, not X).
-complement(not X, X).
+complement(X, not X) :- atom(X).
+complement(not X, X) :- atom(X).
 
 % Predicado para saber si es refutable un conjunto de clausulas
 isRefutable([]).
@@ -32,7 +32,7 @@ removeDuplicates([H | T], R) :-
 
 % Predicado para dar formato a cada paso de deducción
 formatStep([A, B, R]) :-
-    format('Resolvente ==> ~|~t~w~t~15+ |>> ~|~t~w~t~15+ ---> ~|~t~w~t~5+~n', [A, B, R]).
+    format('Resolvente ==> ~|~t~w~t~20+ |>> ~|~t~w~t~20+ ---> ~|~t~w~t~10+~n', [A, B, R]).
 
 % Predicado para imprimir un procedimiento de deducción.
 printDeduction([]) :- !.
@@ -44,7 +44,7 @@ printDeduction([FirstStep | DeductionStep]) :-
 printAllDeductions([]) :- !.
 printAllDeductions([FirstDeduction | AllDeductions]) :-
     printDeduction(FirstDeduction),
-    format('~n~|~t+ ---------------- x ---------------- +~t~60+~n~n'),
+    format('~n~|~t+ ---------------- x ---------------- +~t~70+~n~n'),
     printAllDeductions(AllDeductions).
 
 % ----------------- ClauseParser ----------------- %
@@ -121,7 +121,7 @@ linearResolution(Step, DeductionSet, [[Step, Clause, Resolvent] | NextSteps]) :-
     not(isRefutable(Resolvent)),
     linearResolution(Resolvent, DeductionSet, NextSteps).
 
-% Predicado para poder econtrar todas las soluciones posibles (o eso intenta)
+% Predicado para poder encontrar todas las soluciones posibles (o eso intenta)
 findAllRefutations(DeductionSet, AllRefutations) :-
     findall(DeductionSteps, (
         member(Top, DeductionSet),
@@ -156,16 +156,28 @@ allRefutations(Proof, DeductionSet, DeductionSteps) :-
     findAllRefutations(ParsedSet, DeductionSteps).
 
 % [[[p, q], [not q], [p]], [[p], [not p], []]]
-% ----------------- Correr el commando ----------------- %
+% ----------------- Correr el comando ----------------- %
 
-todasLasRefutaciones :-
+todasLasRefutaciones1 :-
     allRefutations(c,[p or not q, q, not p, not c], Ls),
     generalParser(Ls, Resturn),
     format('Todas las refutaciones posibles por Resolucion Lineal: ~n'),
     printAllDeductions(Resturn).
+    
+todasLasRefutaciones2 :-
+    allRefutations(c,[not a or not b or c, a, b], Ls),
+    generalParser(Ls, Resturn),
+    format('Todas las refutaciones posibles por Resolucion Lineal: ~n'),
+    printAllDeductions(Resturn).
 
-refutar :-
+refutar1 :-
     refutation(c,[p or not q, not p, not c], Ls),
     deductionParser(Ls, Data),
     format('Refutacion por Resolucion Lineal: ~n'),
+    printDeduction(Data).
+    
+refutar2 :-
+    refutation(c,[not a or not b or c, a, b], Ls),
+    deductionParser(Ls, Data),
+    format('Refutacion por Resolucion Lineal ñ: ~n'),
     printDeduction(Data).
